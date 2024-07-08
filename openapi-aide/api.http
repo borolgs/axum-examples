@@ -1,0 +1,15 @@
+## Aide
+
+### Create
+POST http://localhost:4000/notes
+Content-Type: application/json
+
+{
+  "text": "hello"
+}
+
+### Get
+GET http://localhost:4000/notes/0190917f-42d2-71f3-b1b0-d3cc20dc89ba
+
+### Find
+GET http://localhost:4000/notes?query=123
