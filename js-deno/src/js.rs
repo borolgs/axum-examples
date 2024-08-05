@@ -1,6 +1,9 @@
+use deno_ast::{ParseParams, SourceMapOption};
 use deno_core::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::runtime::Handle;
+use url::Url;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -8,6 +11,12 @@ pub enum Error {
     Deno(#[from] anyhow::Error),
     #[error(transparent)]
     SerdeV8(#[from] serde_v8::Error),
+
+    #[error(transparent)]
+    Parse(#[from] deno_ast::ParseDiagnostic),
+    #[error(transparent)]
+    Transpile(#[from] deno_ast::TranspileError),
+
     #[error("unexpected")]
     Unexpected(String),
 }
@@ -15,6 +24,14 @@ pub enum Error {
 #[derive(Deserialize, Debug)]
 pub struct Script {
     pub source: String,
+    pub lang: Option<Lang>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Lang {
+    TS,
+    JS,
 }
 
 #[derive(Serialize, Debug)]
@@ -44,8 +61,10 @@ impl Runtime {
     pub fn new() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded::<Message>();
 
+        let handle = Handle::current();
+
         std::thread::spawn(move || {
-            let my_ext = Extension {
+            let print_ext = Extension {
                 name: "override",
                 middleware_fn: Some(Box::new(|op| match op.name {
                     "op_print" => op_print(),
@@ -55,7 +74,7 @@ impl Runtime {
             };
 
             let mut runtime = JsRuntime::new(RuntimeOptions {
-                extensions: vec![my_ext],
+                extensions: vec![print_ext],
                 ..Default::default()
             });
 
@@ -65,27 +84,58 @@ impl Runtime {
             while let Ok(msg) = receiver.recv() {
                 match msg {
                     Message::ExecuteScript { script, respond_to } => {
-                        let res = runtime
-                            .lazy_load_es_module_with_code("test:test/test.js", script.source);
+                        let specifier = Url::parse("test:test/test.ts").unwrap();
 
-                        let res = match res {
-                            Ok(global) => {
-                                let scope = &mut runtime.handle_scope();
-                                let local = v8::Local::new(scope, global);
-
-                                let deserialized_value =
-                                    serde_v8::from_v8::<serde_json::Value>(scope, local);
-
-                                match deserialized_value {
-                                    Ok(value) => Ok(value),
-                                    Err(err) => Err(err.into()),
+                        let source = if script
+                            .lang
+                            .map(|lang| matches!(lang, Lang::TS))
+                            .unwrap_or(false)
+                        {
+                            match transpile_ts(specifier.clone(), script.source) {
+                                Ok(source) => source,
+                                Err(err) => {
+                                    let _ = respond_to.send(Err(err));
+                                    continue;
                                 }
                             }
-                            Err(err) => Err(err.into()),
-                        }
-                        .map(|result| ScriptResult { result });
+                        } else {
+                            script.source
+                        };
 
-                        let _ = respond_to.send(res);
+                        let future = async {
+                            let res = async {
+                                let mod_id = runtime
+                                    .load_side_es_module_from_code(&specifier, source)
+                                    .await?;
+                                let mod_res = runtime.mod_evaluate(mod_id);
+                                runtime.run_event_loop(Default::default()).await?;
+
+                                mod_res.await?;
+
+                                match runtime.get_module_namespace(mod_id) {
+                                    Ok(global) => {
+                                        let scope = &mut runtime.handle_scope();
+                                        let local = v8::Local::new(scope, global);
+
+                                        let deserialized_value = serde_v8::from_v8::<
+                                            serde_json::Value,
+                                        >(
+                                            scope, local.into()
+                                        );
+
+                                        deserialized_value
+                                            .map_err(|e| Error::from(e))
+                                            .map(|result| ScriptResult { result })
+                                    }
+                                    Err(e) => Err(e.into()),
+                                }
+                            }
+                            .await;
+
+                            let _ = respond_to.send(res);
+                        };
+
+                        _ = handle.block_on(future);
                     }
                 }
             }
@@ -108,4 +158,31 @@ impl Runtime {
 
         res
     }
+}
+
+fn transpile_ts(specifier: Url, source: String) -> Result<String, Error> {
+    let parsed = deno_ast::parse_module(ParseParams {
+        specifier,
+        text: source.into(),
+        media_type: deno_ast::MediaType::TypeScript,
+        capture_tokens: false,
+        scope_analysis: false,
+        maybe_syntax: None,
+    })?;
+
+    let res = parsed.transpile(
+        &deno_ast::TranspileOptions {
+            imports_not_used_as_values: deno_ast::ImportsNotUsedAsValues::Remove,
+            use_decorators_proposal: true,
+            ..Default::default()
+        },
+        &deno_ast::EmitOptions {
+            source_map: SourceMapOption::Separate,
+            inline_sources: true,
+            ..Default::default()
+        },
+    )?;
+    let res = res.into_source();
+
+    Ok(String::from_utf8(res.source).unwrap())
 }
