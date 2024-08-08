@@ -1,0 +1,73 @@
+{% extends "page.html" %}
+{% block head %}
+<style>
+  td>input:not([type='checkbox'], [type='radio']),
+  select,
+  textarea,
+  details,
+  button {
+    margin-bottom: 0;
+  }
+
+  td {
+    vertical-align: top;
+  }
+
+  tr {
+    height: calc(1rem * var(--pico-line-height) + var(--pico-form-element-spacing-vertical) * 2 + var(--pico-border-width) * 2 + var(--pico-spacing));
+  }
+
+  textarea {
+    height: calc(1rem * var(--pico-line-height) + var(--pico-form-element-spacing-vertical) * 2 + var(--pico-border-width) * 2);
+  }
+</style>
+{% endblock head %}
+{% block header %}
+{% endblock %}
+{% block main %}
+<div id="main"
+     class="content">
+  <h1>Notes</h1>
+  <div>
+    <table>
+      <thead>
+        <tr>
+          <th width="30%"
+              scope="col">Title</th>
+          <th width="50%"
+              scope="col">Text</th>
+          <th scope="col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% block results -%}
+        {% for note in notes -%}
+        {% block note -%}
+        <tr>
+          <td>{{note.title}}</td>
+          <td>{{note.text}}</td>
+          <td>
+            <a href="#"
+               hx-get="/edit?note_id={{note.id}}"
+               hx-swap="outerHTML"
+               hx-target="closest tr">Edit</a>
+            <a href="#"
+               hx-delete="/notes/{{note.id}}"
+               hx-swap="outerHTML"
+               hx-target="closest tr">Delete</a>
+
+          </td>
+        </tr>
+        {%- endblock %}
+
+        {%- endfor %}
+        {%- endblock %}
+
+      </tbody>
+    </table>
+    <button hx-get="/edit"
+            hx-swap="beforeend"
+            hx-target="tbody">New</button>
+  </div>
+</div>
+{% endblock %}
