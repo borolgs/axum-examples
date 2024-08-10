@@ -13,7 +13,7 @@ use axum::{
     Form, Router,
 };
 use minijinja::{context, Environment};
-use rusqlite::params;
+use rusqlite::{params, Row};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
@@ -42,19 +42,27 @@ struct DeleteNote {
     note_id: Uuid,
 }
 
+impl<'a> TryFrom<&Row<'a>> for Note {
+    type Error = rusqlite::Error;
+
+    fn try_from(row: &Row<'a>) -> Result<Self, Self::Error> {
+        let id: uuid::Uuid = row.get(0)?;
+
+        Ok(Self {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            text: row.get(2)?,
+        })
+    }
+}
+
 async fn get_note(Path(note_id): Path<Uuid>, view: Views, State(db): State<DB>) -> impl IntoResponse {
     let note = db
         .call(move |conn| {
             let note = conn.query_row(
-                "SELECT id, title, text, created_at, updated_at, created_at, updated_at FROM notes WHERE id = ?",
+                "SELECT id, title, text, created_at, updated_at FROM notes WHERE id = ?",
                 params![note_id],
-                |row| {
-                    Ok(Note {
-                        id: row.get(0).unwrap(),
-                        title: row.get(1).unwrap(),
-                        text: row.get(2).unwrap(),
-                    })
-                },
+                |row| Note::try_from(row),
             )?;
             Ok(note)
         })
@@ -71,14 +79,8 @@ async fn notes_view(view: Views, State(db): State<DB>) -> impl IntoResponse {
     let notes = db
         .call(|conn| {
             let notes = conn
-                .prepare("SELECT id, title, text FROM notes")?
-                .query_map([], |row| {
-                    Ok(Note {
-                        id: row.get(0).unwrap(),
-                        title: row.get(1).unwrap(),
-                        text: row.get(2).unwrap(),
-                    })
-                })?
+                .prepare("SELECT id, title, text, created_at, updated_at FROM notes")?
+                .query_map([], |row| Note::try_from(row))?
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(notes)
         })
@@ -100,27 +102,15 @@ async fn edit_note_view(
         .call(move |conn| {
             let note = if let Some(note_id) = edit_query.note_id {
                 conn.query_row(
-                    "SELECT id, title, text, created_at, updated_at, created_at, updated_at FROM notes WHERE id = ?",
+                    "SELECT id, title, text, created_at, updated_at FROM notes WHERE id = ?",
                     params![note_id],
-                    |row| {
-                        Ok(Note {
-                            id: row.get(0).unwrap(),
-                            title: row.get(1).unwrap(),
-                            text: row.get(2).unwrap(),
-                        })
-                    },
+                    |row| Note::try_from(row),
                 )?
             } else {
                 conn.query_row(
                     "INSERT INTO notes (title, text) VALUES ('', '') RETURNING id, title, text",
                     [],
-                    |row| {
-                        Ok(Note {
-                            id: row.get(0).unwrap(),
-                            title: row.get(1).unwrap(),
-                            text: row.get(2).unwrap(),
-                        })
-                    },
+                    |row| Note::try_from(row),
                 )?
             };
             Ok(note)
