@@ -1,0 +1,30 @@
+<tr>
+  <td>
+    <input type="text"
+           name="note_id"
+           value="{{note.id}}""
+           hidden>
+    <input type="
+           text"
+           name="title"
+           value="{{note.title}}"
+           placeholder="Title...">
+  </td>
+  <td>
+    <textarea name="text"
+              placeholder="Text...">{{note.text}}</textarea>
+  </td>
+  <td>
+
+    <a hx-boost="true"
+       hx-post="/notes"
+       href="/notes"
+       hx-swap="outerHTML"
+       hx-target="closest tr"
+       hx-include="closest tr">Save</a>
+    <a href="#"
+       hx-delete="/notes/{{note.id}}"
+       hx-swap="outerHTML"
+       hx-target="closest tr">Delete</a>
+  </td>
+</tr>
