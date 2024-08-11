@@ -2,6 +2,8 @@ use rusqlite::functions::FunctionFlags;
 use tokio_rusqlite::Connection;
 use uuid::Uuid;
 
+use crate::config::config;
+
 use super::migrations::MIGRATIONS;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -43,7 +45,7 @@ impl From<rusqlite::Error> for Error {
 pub type DB = Connection;
 
 pub async fn init_db() -> Result<DB> {
-    let conn = tokio_rusqlite::Connection::open(std::env::var("DB_PATH").unwrap_or("sqlite.db".into())).await?;
+    let conn = tokio_rusqlite::Connection::open(&config().database_url).await?;
 
     conn.call(|conn| {
         add_uuid_functions(conn)?;
@@ -52,6 +54,22 @@ pub async fn init_db() -> Result<DB> {
 
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
+
+        Ok(())
+    })
+    .await?;
+
+    Ok(conn)
+}
+
+#[cfg(test)]
+pub async fn init_test_db() -> Result<DB> {
+    let conn = tokio_rusqlite::Connection::open_in_memory().await?;
+
+    conn.call(|conn| {
+        add_uuid_functions(conn)?;
+
+        MIGRATIONS.to_latest(conn).unwrap();
 
         Ok(())
     })

@@ -13,7 +13,9 @@ cross build --package=auth-axum-login --target=x86_64-unknown-linux-musl --relea
 
 .env
 
-```
+```bash
+# github oauth
+# https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
 GITHUB_OAUTH_REDIRECT_URL=
 GITHUB_OAUTH_CLIENT_ID=
 GITHUB_OAUTH_CLIENT_SECRET=

@@ -5,6 +5,10 @@ edition = "2021"
 
 [dependencies]
 thiserror = "1.0.58"
+anyhow = "1.0.82"
+
+dotenvy = "0.15.7"
+envy = "0.4.2"
 
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.4.13", features = ["full"] }
@@ -42,3 +46,9 @@ oauth2 = "4.4.2"
 
 axum-htmx = "0.5.0"
 minijinja = "2.1.1"
+minijinja-embed = "2.1.2"
+
+reqwest = { version = "0.12.4", features = ["json"] }
+
+[build-dependencies]
+minijinja-embed = "2.1.2"

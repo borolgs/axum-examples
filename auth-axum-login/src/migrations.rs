@@ -4,12 +4,36 @@ use rusqlite_migration::{Migrations, M};
 lazy_static! {
     pub static ref MIGRATIONS: Migrations<'static> = Migrations::new(vec![
         M::up(r#"
+                CREATE TABLE users (
+                    id BLOB PRIMARY KEY CHECK(length(id) = 16) NOT NULL UNIQUE DEFAULT (uuid7_now()),
+                    
+                    email TEXT NOT NULL UNIQUE,
+                    role TEXT NOT NULL DEFAULT 'member', -- admin | member | guest
+                    oauth_provider TEXT,
+                    access_token TEXT,
+                    password TEXT,
+
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    created_by BLOB CHECK(length(created_by) = 16),
+                    updated_at DATETIME,
+                    updated_by BLOB CHECK(length(updated_by) = 16),
+                    
+                    FOREIGN KEY (created_by) REFERENCES users(id),
+                    FOREIGN KEY (updated_by) REFERENCES users(id)
+                );
                 CREATE TABLE notes (
                     id BLOB PRIMARY KEY CHECK(length(id) = 16) NOT NULL UNIQUE DEFAULT (uuid7_now()),
+                    
                     title TEXT,
                     text TEXT,
+
                     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME
+                    created_by BLOB CHECK(length(created_by) = 16),
+                    updated_at DATETIME,
+                    updated_by BLOB CHECK(length(updated_by) = 16),
+
+                    FOREIGN KEY (created_by) REFERENCES users (id),
+                    FOREIGN KEY (updated_by) REFERENCES users (id)
                 );
                 "#
         ),
