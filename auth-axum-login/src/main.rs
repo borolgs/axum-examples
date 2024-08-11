@@ -1,19 +1,20 @@
 #![allow(unused)]
+mod app;
 mod auth;
 mod config;
 mod db;
-mod errors;
-mod migrations;
 mod notes;
-mod state;
+mod shared;
 mod users;
-mod views;
 
 use axum::Router;
 use axum_macros::FromRef;
 use db::init_db;
 
 use minijinja::Environment;
+
+pub use app::{create_app, errors, state};
+pub use shared::views;
 
 use state::AppState;
 use tokio::net::TcpListener;
@@ -30,38 +31,14 @@ use views::Views;
 #[tokio::main]
 async fn main() -> errors::Result<()> {
     std::env::set_var("RUST_BACKTRACE", "1");
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "auth_axum_login=debug,tower_http=debug,axum::rejection=trace".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+
+    shared::tracing::setup_tracing(false);
 
     let conn = init_db().await?;
 
-    let session_store = RusqliteStore::new(conn.clone());
-    session_store.migrate().await.map_err(db::Error::from)?;
-    let session_layer = SessionManagerLayer::new(session_store)
-        .with_secure(false)
-        .with_same_site(SameSite::Lax)
-        .with_expiry(Expiry::OnInactivity(Duration::days(1)));
+    let app = create_app(conn).await?;
 
-    let mut env = Environment::new();
-    minijinja_embed::load_templates!(&mut env);
-
-    let views = Views::new(env);
-    let state = AppState {
-        conn: conn.clone(),
-        views,
-    };
-
-    let app = Router::new()
-        .merge(auth::router(state.clone()))
-        .merge(notes::router(state.clone()))
-        .layer(TraceLayer::new_for_http());
-
-    let app = auth::add_auth_layer(app, session_layer, state.conn.clone());
+    let app = shared::tracing::add_tracing_layer(app);
 
     let listener = TcpListener::bind(format!("127.0.0.1:4000")).await.unwrap();
 
