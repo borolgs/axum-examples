@@ -44,7 +44,23 @@
         {% for note in notes -%}
         {% block note -%}
         <tr>
-          <td>{{note.title}}</td>
+          <td>
+            <strong>{{note.title}}</strong>
+            <br />
+            <small>created at {{note.created_at|datetimeformat(format="short")}}
+              {% if note.created_by == user.id %}
+              by me
+              {% endif %}
+            </small>
+            {% if note.updated_at %}
+            <br />
+            <small>updated at {{note.updated_at|datetimeformat(format="short")}}
+              {% if note.updated_by == user.id %}
+              by me
+              {% endif %}
+            </small>
+            {% endif %}
+          </td>
           <td>{{note.text}}</td>
           <td>
             <a href="#"

@@ -1,4 +1,4 @@
-use axum::Router;
+use axum::{Extension, Router};
 use axum_macros::FromRef;
 
 use minijinja::Environment;
@@ -30,6 +30,8 @@ pub async fn create_app(db: DB) -> errors::Result<Router> {
         .with_expiry(Expiry::OnInactivity(Duration::days(1)));
 
     let mut env = Environment::new();
+    env.set_undefined_behavior(minijinja::UndefinedBehavior::Chainable);
+    minijinja_contrib::add_to_environment(&mut env);
     minijinja_embed::load_templates!(&mut env);
 
     let views = Views::new(env);
@@ -40,7 +42,8 @@ pub async fn create_app(db: DB) -> errors::Result<Router> {
 
     let app = Router::new()
         .merge(auth::router(state.clone()))
-        .merge(notes::router(state.clone()));
+        .merge(notes::router(state.clone()))
+        .layer(Extension(db));
 
     let app = auth::add_auth_layer(app, session_layer, state.conn.clone());
 

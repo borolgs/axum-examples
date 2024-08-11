@@ -221,6 +221,7 @@ dependencies = [
  "envy",
  "lazy_static",
  "minijinja",
+ "minijinja-contrib",
  "minijinja-embed",
  "oauth2",
  "reqwest 0.12.5",
@@ -1887,11 +1888,22 @@ dependencies = [
 
 [[package]]
 name = "minijinja"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4bf71af278c578cbcc91d0b1ff092910208bc86f7b3750364642bd424e3dcd3"
+checksum = "bf369fce3289017a63e514dfca10a0a6f1a02216b21b588b79f6a1081eb999f5"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "minijinja-contrib"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e399c81b189a627d37d43a028451551b2942e8bbe36d5c79db6d81be7e5047d4"
+dependencies = [
+ "minijinja",
+ "serde",
+ "time",
 ]
 
 [[package]]

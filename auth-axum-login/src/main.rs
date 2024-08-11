@@ -2,6 +2,7 @@
 mod app;
 mod auth;
 mod config;
+mod ctx;
 mod db;
 mod notes;
 mod shared;

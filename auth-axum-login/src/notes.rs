@@ -2,6 +2,7 @@ use std::{ops::Deref, sync::Arc};
 
 use crate::{
     auth,
+    ctx::BaseParams,
     db::{self, DB},
     errors::Error,
     users::UserId,
@@ -87,7 +88,9 @@ async fn get_note(Path(note_id): Path<Uuid>, view: Views, State(db): State<DB>) 
         .into_response()
 }
 
-async fn notes_view(view: Views, State(db): State<DB>) -> impl IntoResponse {
+async fn notes_view(view: Views, BaseParams { db, ctx }: BaseParams) -> impl IntoResponse {
+    let user = ctx.user;
+
     let notes = db
         .call(|conn| {
             let notes = conn
@@ -102,15 +105,18 @@ async fn notes_view(view: Views, State(db): State<DB>) -> impl IntoResponse {
     notes
         .map_err(|err| {
             tracing::error!("{err:?}");
-            view.response("notes.html", context! { notes => json!([]), error => err.to_string() });
+            view.response(
+                "notes.html",
+                context! { notes => json!([]), error => err.to_string(), user => user },
+            );
         })
-        .map(|notes| view.response("notes.html", context! { notes => notes }))
+        .map(|notes| view.response("notes.html", context! { notes => notes, user => user }))
         .into_response()
 }
 
 async fn edit_note_view(
     view: Views,
-    State(db): State<DB>,
+    BaseParams { db, ctx }: BaseParams,
     Query(edit_query): Query<EditNoteQuery>,
 ) -> impl IntoResponse {
     let note = db
@@ -123,9 +129,9 @@ async fn edit_note_view(
                 )?
             } else {
                 conn.query_row(
-                    r#"INSERT INTO notes (title, text) VALUES ('', '')
+                    r#"INSERT INTO notes (title, text, created_by) VALUES ('', '', ?)
                     RETURNING id, title, text, created_at, created_by, updated_at, updated_by"#,
-                    [],
+                    params![ctx.get_user_id()],
                     |row| Note::try_from(row),
                 )?
             };
@@ -142,16 +148,17 @@ async fn edit_note_view(
 
 async fn update_note(
     view: Views,
-    State(db): State<DB>,
+    BaseParams { db, ctx }: BaseParams,
     Form(UpdateNote { note_id, text, title }): Form<UpdateNote>,
 ) -> impl IntoResponse {
+    let user = ctx.clone().user;
     let note = db
         .call(move |conn| {
             conn.query_row(
-                r#"UPDATE notes SET text = ?, title = ?, updated_at = ?
+                r#"UPDATE notes SET text = ?, title = ?, updated_at = ?, updated_by = ?
                 WHERE id = ?
                 RETURNING id, title, text, created_at, created_by, updated_at, updated_by"#,
-                params![text, title, chrono::Utc::now(), note_id],
+                params![text, title, chrono::Utc::now(), ctx.clone().get_user_id(), note_id],
                 |row| Note::try_from(row),
             )
             .map_err(|e| e.into())
@@ -160,7 +167,7 @@ async fn update_note(
         .map_err(db::Error::from)
         .map_err(|e| db::Error::not_found_message(e, "Note not found"));
 
-    note.map(|note| view.response("notes.html#note", context! { note => note }))
+    note.map(|note| view.response("notes.html#note", context! { note => note, user => user  }))
         .map_err(Error::from)
         .into_response()
 }

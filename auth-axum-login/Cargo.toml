@@ -46,6 +46,7 @@ oauth2 = "4.4.2"
 
 axum-htmx = "0.5.0"
 minijinja = "2.1.1"
+minijinja-contrib = { version = "2.1.2", features = ["datetime"] }
 minijinja-embed = "2.1.2"
 
 reqwest = { version = "0.12.4", features = ["json"] }
