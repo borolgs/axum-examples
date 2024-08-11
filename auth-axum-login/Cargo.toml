@@ -51,5 +51,8 @@ minijinja-embed = "2.1.2"
 
 reqwest = { version = "0.12.4", features = ["json"] }
 
+# https://github.com/cross-rs/cross/issues/1382#issuecomment-1848972937
+openssl = { version = "0.10", features = ["vendored"] }
+
 [build-dependencies]
 minijinja-embed = "2.1.2"

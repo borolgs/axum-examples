@@ -22,3 +22,5 @@ GITHUB_OAUTH_CLIENT_SECRET=
 ```
 
 http://127.0.0.1:4000
+
+Live Demo: https://axum-notes-app.glitch.me
