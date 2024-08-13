@@ -1,8 +1,6 @@
 #![allow(unused)]
 mod app;
 mod auth;
-mod config;
-mod ctx;
 mod db;
 mod notes;
 mod shared;
@@ -14,7 +12,11 @@ use db::init_db;
 
 use minijinja::Environment;
 
-pub use app::{create_app, errors, state};
+pub use app::{
+    config, create_app, ctx,
+    errors::{self, Error, Result},
+    state,
+};
 pub use shared::views;
 
 use state::AppState;

@@ -1,7 +1,8 @@
 use axum::{
     async_trait,
-    extract::{Extension, FromRequestParts},
-    http::request::Parts,
+    extract::{Extension, FromRequestParts, Request},
+    http::{request::Parts, HeaderMap},
+    middleware::Next,
     response::{IntoResponse, Response},
     RequestPartsExt,
 };
@@ -12,6 +13,26 @@ use crate::{
     db::DB,
     users::{UserId, UserRole},
 };
+
+#[derive(Clone, Debug, FromRequestParts)]
+pub struct BaseParams {
+    pub ctx: Ctx,
+    #[from_request(via(Extension))]
+    pub db: DB,
+}
+
+impl BaseParams {
+    pub fn new(db: DB, ctx: Ctx) -> Self {
+        Self { db, ctx }
+    }
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct User {
+    pub id: UserId,
+    pub email: String,
+    pub role: UserRole,
+}
 
 #[derive(Clone, Debug)]
 pub struct Ctx {
@@ -51,22 +72,24 @@ where
     }
 }
 
-#[derive(Clone, Debug, FromRequestParts)]
-pub struct BaseParams {
-    pub ctx: Ctx,
-    #[from_request(via(Extension))]
-    pub db: DB,
+#[derive(Clone)]
+pub struct ReqCtx {
+    pub headers: HeaderMap,
+    pub user: Option<User>,
 }
 
-impl BaseParams {
-    pub fn new(db: DB, ctx: Ctx) -> Self {
-        Self { db, ctx }
-    }
+tokio::task_local! {
+    pub static REQ_CTX: ReqCtx;
 }
 
-#[derive(Debug, Serialize, Clone)]
-pub struct User {
-    pub id: UserId,
-    pub email: String,
-    pub role: UserRole,
+pub async fn with_ctx(headers: HeaderMap, ctx: Ctx, request: Request, next: Next) -> crate::Result<Response> {
+    Ok(REQ_CTX
+        .scope(
+            ReqCtx {
+                headers,
+                user: ctx.user,
+            },
+            next.run(request),
+        )
+        .await)
 }
