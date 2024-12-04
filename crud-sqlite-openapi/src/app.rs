@@ -16,12 +16,8 @@ use serde_json::json;
 use crate::{
     ctx::with_ctx,
     db::DB,
-    errors::{self, on_error, ErrorResponseDocs},
-    openapi::{
-        self,
-        aide::axum::{ApiRouter, IntoApiResponse},
-        OpenApi,
-    },
+    errors::{self, on_error},
+    openapi::{aide::axum::ApiRouter, OpenApi},
     state::AppState,
 };
 
@@ -58,9 +54,7 @@ where
         .route("/__lbheartbeat__", get(lbheartbeat))
         .merge(api_router)
         .merge(router(state.clone()))
-        .finish_api_with(&mut api, |t| {
-            t.title("Notes").default_response::<openapi::Json<ErrorResponseDocs>>()
-        })
+        .finish_api_with(&mut api, |t| t.title("Notes"))
         .layer(
             ServiceBuilder::new()
                 .layer(Extension(db))
@@ -98,6 +92,6 @@ async fn lbheartbeat() -> impl IntoResponse {
 
 // TODO
 #[cfg(not(test))]
-async fn serve_docs(Extension(api): Extension<Arc<OpenApi>>) -> impl IntoApiResponse {
-    openapi::Json(api).into_response()
+async fn serve_docs(Extension(api): Extension<Arc<OpenApi>>) -> impl aide::axum::IntoApiResponse {
+    crate::openapi::Json(api).into_response()
 }

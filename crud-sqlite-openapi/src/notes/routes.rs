@@ -2,7 +2,7 @@ use crate::{
     ctx::BaseParams,
     openapi::{
         aide::{
-            axum::{routing as api, ApiRouter, IntoApiResponse},
+            axum::{routing::get, ApiRouter, IntoApiResponse},
             NoApi,
         },
         Json, Path,
@@ -10,14 +10,13 @@ use crate::{
     state::AppState,
 };
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
 
 use schemars::JsonSchema;
 
 use serde::Deserialize;
 use uuid::Uuid;
 
-use super::{CreateNote, FindNotesResponse, Note, UpdateNote};
+use super::{CreateNote, Note, UpdateNote};
 
 use super::handlers;
 
@@ -30,34 +29,30 @@ pub fn router(state: AppState) -> ApiRouter {
     ApiRouter::new()
         .api_route(
             "/api/v1/notes",
-            api::get_with(find_notes, |t| t.response::<200, Json<FindNotesResponse>>())
-                .post_with(create_note, |t| t.response::<201, Json<Note>>()),
+            get(find_notes).post_with(create_note, |t| t.response::<201, Json<Note>>()),
         )
         .api_route(
             "/api/v1/notes/:note_id",
-            api::get_with(get_note, |t| t.response::<200, Json<Note>>())
-                .patch_with(update_note, |t| t.response::<200, Json<Note>>())
-                .delete_with(delete_note, |t| t.response::<200, Json<Note>>()),
+            get(get_note).patch(update_note).delete(delete_note),
         )
         .with_state(state)
 }
 
 async fn find_notes(NoApi(base): NoApi<BaseParams>) -> impl IntoApiResponse {
-    handlers::find_notes(base).await.map(Json).into_response()
+    handlers::find_notes(base).await.map(Json)
 }
 
 async fn create_note(NoApi(base): NoApi<BaseParams>, Json(args): Json<CreateNote>) -> impl IntoApiResponse {
     handlers::create_note(args, base)
         .await
         .map(|r| (StatusCode::CREATED, Json(r)))
-        .into_response()
 }
 
 async fn get_note(
     Path(NoteIdPath { note_id }): Path<NoteIdPath>,
     NoApi(base): NoApi<BaseParams>,
 ) -> impl IntoApiResponse {
-    handlers::get_note(note_id, base).await.map(Json).into_response()
+    handlers::get_note(note_id, base).await.map(Json)
 }
 
 async fn update_note(
@@ -65,17 +60,14 @@ async fn update_note(
     NoApi(base): NoApi<BaseParams>,
     Json(args): Json<UpdateNote>,
 ) -> impl IntoApiResponse {
-    handlers::update_note(note_id, args, base)
-        .await
-        .map(Json)
-        .into_response()
+    handlers::update_note(note_id, args, base).await.map(Json)
 }
 
 async fn delete_note(
     Path(NoteIdPath { note_id }): Path<NoteIdPath>,
     NoApi(base): NoApi<BaseParams>,
 ) -> impl IntoApiResponse {
-    handlers::delete_note(note_id, base).await.map(Json).into_response()
+    handlers::delete_note(note_id, base).await.map(Json)
 }
 
 #[cfg(test)]
@@ -83,11 +75,10 @@ mod tests {
     use crate::{
         db::{init_test_db, DB},
         errors::Result,
+        notes::{FindNotesResponse, Note},
     };
     use axum_test::TestServer;
     use serde_json::json;
-
-    use super::{FindNotesResponse, Note};
 
     #[tokio::test]
     async fn find_notes() -> Result<()> {
