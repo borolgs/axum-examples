@@ -3,14 +3,13 @@ use std::sync::{Arc, OnceLock};
 use crate::error_responses;
 use axum::{
     extract::{
-        rejection::{PathRejection, QueryRejection},
+        rejection::{JsonRejection, PathRejection, QueryRejection},
         Request,
     },
     http::StatusCode,
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use axum_jsonschema::JsonSchemaRejection;
 use schemars::{
     schema::{Schema, SchemaObject, SubschemaValidation},
     schema_for, schema_for_value, JsonSchema,
@@ -35,7 +34,7 @@ pub enum Error {
 
     // validation
     #[error("validation")]
-    JsonValidation(JsonSchemaRejection),
+    JsonValidation(JsonRejection),
     #[error("validation")]
     QueryValidation(#[from] QueryRejection),
     #[error("validation")]
@@ -53,8 +52,8 @@ pub enum Error {
     Unexpected(String),
 }
 
-impl From<JsonSchemaRejection> for Error {
-    fn from(rejection: JsonSchemaRejection) -> Self {
+impl From<JsonRejection> for Error {
+    fn from(rejection: JsonRejection) -> Self {
         Self::JsonValidation(rejection)
     }
 }
@@ -124,14 +123,7 @@ impl From<&Error> for ErrorResponse {
             Error::NotFound(message) => errors.not_found.with_message(message),
             Error::Unauthorized => errors.unauthorized.with_message("Unauthorized"),
             Error::Forbidden => errors.forbidden.with_message("Forbitten"),
-            Error::JsonValidation(json_error) => {
-                let message = match json_error {
-                    JsonSchemaRejection::Json(error) => error.body_text(),
-                    JsonSchemaRejection::Serde(error) => error.to_string(),
-                    JsonSchemaRejection::Schema(_) => "Request schema validation error".into(), // TODO: details
-                };
-                errors.json_validation.with_message(message)
-            }
+            Error::JsonValidation(json_error) => errors.json_validation.with_message(json_error.body_text()),
             Error::QueryValidation(error) => errors.query_validation.with_message(error.body_text()),
             Error::PathValidation(error) => errors.path_validation.with_message(error.body_text()),
             Error::App(app_error) => {

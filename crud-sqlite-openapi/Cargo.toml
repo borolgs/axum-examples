@@ -15,8 +15,8 @@ envy = "0.4.2"
 tokio = { version = "1", features = ["full"] }
 tower = { version = "0.5.1", features = ["full"] }
 tower-http = { version = "0.6.2", features = ["full"] }
-axum = { version = "0.7.5", features = ['macros'] }
-axum-macros = "0.4.1"
+axum = { version = "0.8.1", features = ['macros'] }
+axum-macros = "0.5.0"
 
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
@@ -51,13 +51,14 @@ sea-query-rusqlite = { version = "0.6.0-rc.1", features = [
 ] }
 
 schemars = { version = "0.8.16", features = ["uuid1", "chrono"] }
-axum-jsonschema = { version = "0.8.0", features = ["aide"] }
-aide = { version = "0.13.4", features = [
+aide = { version = "0.14.0", features = [
   "scalar",
   "axum",
   "axum-extra",
   "macros",
+  "axum-json",
+  "axum-query",
 ] }
 
 [dev-dependencies]
-axum-test = "15.3.1"
+axum-test = "17.1.0"

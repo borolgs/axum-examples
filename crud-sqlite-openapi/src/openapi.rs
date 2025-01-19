@@ -10,48 +10,34 @@ pub use aide::openapi::OpenApi;
 
 use crate::errors::ErrorResponseDocs;
 
+// TODO: vendor axum_jsonschema
 #[derive(FromRequest, OperationIo)]
-#[from_request(via(axum_jsonschema::Json), rejection(crate::Error))]
-#[aide(
-    input_with = "axum_jsonschema::Json<T>",
-    output_with = "axum_jsonschema::Json<T>",
-    json_schema
-)]
+#[from_request(via(axum::Json), rejection(crate::Error))]
+#[aide(input_with = "axum::Json<T>", output_with = "axum::Json<T>", json_schema)]
 pub struct Json<T>(pub T);
 
-impl<T> IntoResponse for Json<T>
-where
-    T: Serialize,
-{
+impl<T: Serialize> IntoResponse for Json<T> {
     fn into_response(self) -> axum::response::Response {
-        axum::Json(self.0).into_response()
+        let Self(value) = self;
+        axum::Json(value).into_response()
     }
 }
 
 #[derive(FromRequestParts, OperationIo)]
 #[from_request(via(axum::extract::Query), rejection(crate::Error))]
-#[aide(
-    input_with = "axum::extract::Query<T>",
-    output_with = "axum_jsonschema::Json<T>",
-    json_schema
-)]
-#[aide]
+#[aide(input_with = "axum::extract::Query<T>", json_schema)]
 pub struct Query<T>(pub T);
 
 #[derive(FromRequestParts, OperationIo)]
 #[from_request(via(axum::extract::Path), rejection(crate::Error))]
-#[aide(
-    input_with = "axum::extract::Path<T>",
-    output_with = "axum_jsonschema::Json<T>",
-    json_schema
-)]
+#[aide(input_with = "axum::extract::Path<T>", json_schema)]
 pub struct Path<T>(pub T);
 
 impl OperationOutput for crate::Error {
     type Inner = ();
 
     fn operation_response(
-        ctx: &mut aide::gen::GenContext,
+        ctx: &mut aide::generate::GenContext,
         operation: &mut aide::openapi::Operation,
     ) -> Option<aide::openapi::Response> {
         let mut schema = ctx.schema.subschema_for::<ErrorResponseDocs>().into_object();
@@ -74,7 +60,7 @@ impl OperationOutput for crate::Error {
     }
 
     fn inferred_responses(
-        ctx: &mut aide::gen::GenContext,
+        ctx: &mut aide::generate::GenContext,
         operation: &mut aide::openapi::Operation,
     ) -> Vec<(Option<u16>, aide::openapi::Response)> {
         if let Some(res) = Self::operation_response(ctx, operation) {

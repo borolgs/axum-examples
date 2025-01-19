@@ -110,11 +110,12 @@ pub mod tests {
 
         let (app, _) = create(AppParams { db, router }).await?;
 
-        let config = TestServerConfig::builder()
-            .save_cookies()
-            .expect_success_by_default()
-            .mock_transport()
-            .build();
+        let config = TestServerConfig {
+            save_cookies: true,
+            expect_success_by_default: true,
+            transport: Some(axum_test::Transport::MockHttp),
+            ..TestServerConfig::default()
+        };
 
         Ok(TestServer::new_with_config(app, config).unwrap())
     }

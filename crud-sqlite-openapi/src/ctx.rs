@@ -1,5 +1,4 @@
 use axum::{
-    async_trait,
     extract::{Extension, FromRequestParts, Request},
     http::{request::Parts, HeaderMap},
     middleware::Next,
@@ -45,7 +44,6 @@ impl Ctx {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Ctx
 where
     S: Send + Sync,

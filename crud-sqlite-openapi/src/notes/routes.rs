@@ -32,7 +32,7 @@ pub fn router(state: AppState) -> ApiRouter {
             get(find_notes).post_with(create_note, |t| t.response::<201, Json<Note>>()),
         )
         .api_route(
-            "/api/v1/notes/:note_id",
+            "/api/v1/notes/{note_id}",
             get(get_note).patch(update_note).delete(delete_note),
         )
         .with_state(state)
