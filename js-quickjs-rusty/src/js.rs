@@ -1,14 +1,18 @@
 use quickjs_rusty::{
-    Context, OwnedJsValue,
+    Context, ExecutionError, OwnedJsValue,
     console::{ConsoleBackend, Level},
+    serde::to_js,
 };
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::fmt::Write;
 use std::sync::{Arc, Mutex};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error(transparent)]
+    Execution(#[from] ExecutionError),
     #[error("unexpected")]
     Unexpected(String),
 }
@@ -43,30 +47,41 @@ impl Runtime {
         std::thread::spawn(move || {
             let context = Context::builder().build().unwrap();
 
+            let js_context = unsafe { context.context_raw() };
+
+            let ctx = json!({"name": "script"});
+            let js_ctx = to_js(js_context, &json!({"name": "script"})).unwrap();
+
+            context.set_global("ctx", js_ctx).unwrap();
+
             while let Ok(msg) = receiver.recv() {
                 match msg {
                     Message::ExecuteScript { script, respond_to } => {
-                        let console = Console::new();
-                        let output = console.output.clone();
-
-                        context.set_console(Box::new(console)).unwrap();
-
-                        let result = context.eval(&script.source, false).unwrap();
-                        let result = result.js_to_string().unwrap();
-
-                        let output = output.lock().unwrap();
-                        let console_output = output.clone();
-
-                        _ = respond_to.send(Ok(ScriptResult {
-                            result,
-                            console_output,
-                        }));
+                        _ = respond_to.send(Runtime::eval(script, &context));
                     }
                 };
             }
         });
 
         Self { sender }
+    }
+
+    fn eval(script: Script, context: &Context) -> Result<ScriptResult, Error> {
+        let console = Console::new();
+        let output = console.output.clone();
+
+        context.set_console(Box::new(console))?;
+
+        let result = context.eval(&script.source, false)?;
+        let result = result.js_to_string()?;
+
+        let output = output.lock().unwrap();
+        let console_output = output.clone();
+
+        Ok(ScriptResult {
+            result,
+            console_output,
+        })
     }
 
     pub async fn execute_script(&self, script: Script) -> Result<ScriptResult, Error> {
@@ -96,10 +111,6 @@ impl Console {
         Self {
             output: Arc::new(Mutex::new(String::from(""))),
         }
-    }
-
-    fn clear(&mut self) {
-        self.output.lock().unwrap().clear();
     }
 }
 
@@ -142,6 +153,19 @@ mod tests {
 
         assert_eq!(res.result, "4");
         assert_eq!(res.console_output, "test2\n");
+    }
+
+    #[tokio::test]
+    async fn ctx() {
+        let runtime = Runtime::new();
+        let res = runtime
+            .execute_script(Script {
+                source: "ctx.name".into(),
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(res.result, "script");
     }
 
     #[test]
