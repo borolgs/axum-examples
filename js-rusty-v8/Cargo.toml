@@ -15,5 +15,7 @@ tokio = { version = "1.44.2", features = ["full"] }
 axum = { version = "0.8.3", features = ['macros'] }
 axum-macros = "0.5.0"
 
+v8 = "136.0.0"
+
 [lints]
 workspace = true
