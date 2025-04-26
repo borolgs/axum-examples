@@ -2,7 +2,14 @@
 [workspace]
 
 resolver = "2"
-members = ["openapi-aide", "js-deno", "crud-sqlite-htmx", "crud-sqlite-openapi", "js-rusty-v8"]
+members = [
+    "openapi-aide",
+    "js-deno",
+    "crud-sqlite-htmx",
+    "crud-sqlite-openapi",
+    "js-rusty-v8",
+    "js-quickjs-rusty",
+]
 
 [workspace.lints.rust]
 dead_code = "allow"
