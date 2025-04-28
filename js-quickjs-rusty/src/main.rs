@@ -5,6 +5,7 @@ use axum::{Json, Router, extract::State, http::StatusCode, response::IntoRespons
 use axum_macros::FromRef;
 use js::Runtime;
 use serde::Serialize;
+use serde_json::Value;
 use tokio::net::TcpListener;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -57,6 +58,18 @@ async fn execute_script(
         .into_response()
 }
 
+async fn sum(State(runtime): State<js::Runtime>, Json(args): Json<Value>) -> impl IntoResponse {
+    runtime
+        .execute_script(js::Script {
+            args: Some(args),
+            source: "console.log('a+b');args.a + args.b".into(),
+        })
+        .await
+        .map(Json)
+        .map_err(Error::from)
+        .into_response()
+}
+
 #[derive(FromRef, Clone)]
 pub struct AppState {
     runtime: js::Runtime,
@@ -68,6 +81,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/run", post(execute_script))
+        .route("/sum", post(sum))
         .with_state(AppState { runtime });
 
     let listener = TcpListener::bind(format!("127.0.0.1:4000")).await?;

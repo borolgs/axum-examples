@@ -5,7 +5,7 @@ use quickjs_rusty::{
 };
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 use std::fmt::Write;
 use std::sync::{Arc, Mutex};
 
@@ -13,12 +13,15 @@ use std::sync::{Arc, Mutex};
 pub enum Error {
     #[error(transparent)]
     Execution(#[from] ExecutionError),
+    #[error(transparent)]
+    Serde(#[from] quickjs_rusty::serde::Error),
     #[error("unexpected")]
     Unexpected(String),
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Script {
+    pub args: Option<Value>,
     pub source: String,
 }
 
@@ -49,10 +52,9 @@ impl Runtime {
 
             let js_context = unsafe { context.context_raw() };
 
-            let ctx = json!({"name": "script"});
-            let js_ctx = to_js(js_context, &json!({"name": "script"})).unwrap();
+            let ctx = to_js(js_context, &json!({"name": "script"})).unwrap();
 
-            context.set_global("ctx", js_ctx).unwrap();
+            context.set_global("ctx", ctx).unwrap();
 
             while let Ok(msg) = receiver.recv() {
                 match msg {
@@ -71,6 +73,10 @@ impl Runtime {
         let output = console.output.clone();
 
         context.set_console(Box::new(console))?;
+
+        let js_context = unsafe { context.context_raw() };
+        let args = to_js(js_context, &script.args)?;
+        context.set_global("args", args)?;
 
         let result = context.eval(&script.source, false)?;
         let result = result.js_to_string()?;
@@ -137,6 +143,7 @@ mod tests {
         let res = runtime
             .execute_script(Script {
                 source: "console.log('test'); 1 + 1".into(),
+                args: None,
             })
             .await
             .unwrap();
@@ -147,6 +154,7 @@ mod tests {
         let res = runtime
             .execute_script(Script {
                 source: "console.log('test2'); 2 + 2".into(),
+                args: None,
             })
             .await
             .unwrap();
@@ -160,12 +168,13 @@ mod tests {
         let runtime = Runtime::new();
         let res = runtime
             .execute_script(Script {
-                source: "ctx.name".into(),
+                source: "let obj = {name: ctx.name, args}; JSON.stringify(obj);".into(),
+                args: Some(json!(["a", "b"])),
             })
             .await
             .unwrap();
 
-        assert_eq!(res.result, "script");
+        assert_eq!(res.result, "{\"name\":\"script\",\"args\":[\"a\",\"b\"]}");
     }
 
     #[test]
