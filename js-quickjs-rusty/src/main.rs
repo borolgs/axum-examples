@@ -60,9 +60,9 @@ async fn execute_script(
 
 async fn sum(State(runtime): State<js::Runtime>, Json(args): Json<Value>) -> impl IntoResponse {
     runtime
-        .execute_script(js::Script {
+        .execute_script(js::Script::Function {
             args: Some(args),
-            source: "console.log('a+b');args.a + args.b".into(),
+            code: "console.log('a+b');args.a + args.b".into(),
         })
         .await
         .map(Json)

@@ -16,6 +16,7 @@ axum = { version = "0.8.3", features = ['macros'] }
 axum-macros = "0.5.0"
 
 quickjs-rusty = { version = "0.8.0", features = ['serde', 'chrono'] }
+deno_ast = { version = "0.46.6", features = ["transpiling"] }
 
 [lints]
 workspace = true
